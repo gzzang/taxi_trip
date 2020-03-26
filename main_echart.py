@@ -41,7 +41,11 @@ def get_airport(df, column_str):
     return df_copy
 
 
-def cal_coordinate_count_of_one_day(file_path, initiation_flag):
+def cal_coordinate_count_of_one_day(file_path, is_airport_initiation, is_output_airport=False):
+    coordinate_list = ['init', 'term']
+    airport_coordinate_type = coordinate_list[not is_airport_initiation]
+    another_coordinate_type = coordinate_list[is_airport_initiation]
+
     full_df = pd.read_csv(file_path, header=None)
     full_df.columns = ['id', 'date', 'hour', 'init', 'term', 'a', 'b']
 
@@ -62,61 +66,66 @@ def cal_coordinate_count_of_one_day(file_path, initiation_flag):
     nonzero_df = full_df[(full_df['term'] != 0) & (full_df['init'] != 0)]
     standard_df = drop_noisy(nonzero_df, ['init_latitude', 'init_longitude', 'term_latitude', 'term_longitude'])
 
-    if initiation_flag:
-        airport_init_df = get_airport(standard_df, 'init')
-        count_airport_init_df = airport_init_df.groupby(["term_longitude", "term_latitude"]).size().reset_index(
+    airport_init_df = get_airport(standard_df, airport_coordinate_type)
+    if is_output_airport:
+        count_point_df = airport_init_df.groupby(
+            [airport_coordinate_type + "_longitude", airport_coordinate_type + "_latitude"]).size().reset_index(
             name="time")
-        # count_airport_init_ar = count_airport_init_df.to_numpy()
-        return count_airport_init_df
     else:
-        airport_term_df = get_airport(standard_df, 'term')
-        count_airport_term_df = airport_term_df.groupby(["init_longitude", "init_latitude"]).size().reset_index(
+        count_point_df = airport_init_df.groupby(
+            [another_coordinate_type + "_longitude", another_coordinate_type + "_latitude"]).size().reset_index(
             name="time")
-        # count_airport_term_ar = count_airport_term_df.to_numpy()
-        return count_airport_term_df
+    count_point_df.columns = ['longitude', 'latitude', 'time']
 
+    return count_point_df
+
+
+def plot(is_car_taxi, is_airport_initiation, is_output_airport=False):
+    car_type = 'taxi' if is_car_taxi else 'online'
+    print(f'car_type:{car_type}')
+    airport_type = 'init' if is_airport_initiation else 'term'
+    print(f'airport_coordinate_type:{airport_type}')
+    output_type = 'airport' if is_output_airport else 'other'
+    print(f'output_type:{output_type}')
+
+    data_folder_path = r'data/' + car_type + '/'
+    file_name_list = os.listdir(data_folder_path)
+    count_df = pd.DataFrame()
+    for one_file_name in file_name_list:
+        print('.', end='')
+        file_path = data_folder_path + one_file_name
+        count_df = count_df.append(
+            cal_coordinate_count_of_one_day(file_path, is_airport_initiation=is_airport_initiation,
+                                            is_output_airport=is_output_airport))
+    print('')
+    count_df = count_df.groupby(["longitude", "latitude"])['time'].sum().reset_index(name="time")
+    count_ar = count_df.to_numpy()
+    map_type_list = ['point', 'heat']
+    for map_type in map_type_list:
+        c = Geo().add_schema(maptype="北京")
+        for i, value in enumerate(count_ar):
+            c.add_coordinate(i, value[0], value[1])
+
+        data_add = [(i, value[2]) for i, value in enumerate(count_ar)]
+
+        legend_string = 'Termination' if is_airport_initiation else 'Initiation'
+
+        if map_type == 'point':
+            c.add(legend_string, data_add, is_large=True, symbol_size=4)
+        elif map_type == 'heat':
+            c.add(legend_string, data_add, is_large=True, type_=ChartType.HEATMAP, )
+        c.set_series_opts(label_opts=opts.LabelOpts(is_show=False))
+        c.set_global_opts(
+            visualmap_opts=opts.VisualMapOpts(type_="color", min_=0, max_=count_ar[:, 2].max(),
+                                              is_piecewise=True),
+            title_opts=opts.TitleOpts(title="Taxi-Trip"), legend_opts=opts.LegendOpts(is_show=False))
+        c.render('map_' + output_type + '_' + car_type + '_' + airport_type + "_" + map_type + ".html")
+
+
+plot(is_car_taxi=True, is_airport_initiation=True, is_output_airport=False)
 
 car_type_list = ['taxi', 'online']
-for car_type in car_type_list:
-    print(f'car_type:{car_type}')
-    coordinate_list = ['init', 'term']
-    for bool in [True, False]:
-        airport_coordinate_type = coordinate_list[not bool]
-        another_coordinate_type = coordinate_list[bool]
-        print(f'airport_coordinate_type:{airport_coordinate_type}')
-        data_folder_path = r'data/' + car_type + '/'
-        file_name_list = os.listdir(data_folder_path)
-        result = pd.DataFrame()
-        for one_file_name in file_name_list:
-            print('.')
-            file_path = data_folder_path + one_file_name
-            initiation_flag = bool
-            count_airport_init_df = cal_coordinate_count_of_one_day(file_path, initiation_flag=initiation_flag)
-            result = result.append(count_airport_init_df)
 
-        count_airport_init_df = \
-        result.groupby([another_coordinate_type + "_longitude", another_coordinate_type + "_latitude"])[
-            'time'].sum().reset_index(name="time")
-
-        count_airport_init_ar = count_airport_init_df.to_numpy()
-        map_type_list = ['point', 'heat']
-        for map_type in map_type_list:
-            c = Geo().add_schema(maptype="北京")
-            for i, value in enumerate(count_airport_init_ar):
-                c.add_coordinate(i, value[0], value[1])
-
-            data_add = [(i, value[2]) for i, value in enumerate(count_airport_init_ar)]
-
-            legend_string = 'Termination' if bool else 'Initiation'
-
-            if map_type == 'point':
-                c.add(legend_string, data_add, is_large=True, symbol_size=4)
-            elif map_type == 'heat':
-                c.add(legend_string, data_add, is_large=True, type_=ChartType.HEATMAP, )
-            c.set_series_opts(label_opts=opts.LabelOpts(is_show=False))
-            c.set_global_opts(
-                visualmap_opts=opts.VisualMapOpts(type_="color", min_=0, max_=count_airport_init_ar[:, 2].max(),
-                                                  is_piecewise=True),
-                title_opts=opts.TitleOpts(title="Taxi-Trip"), legend_opts=opts.LegendOpts(is_show=False))
-            c.render("map_airport_"+car_type+'_'+airport_coordinate_type+ "_" + map_type + ".html")
-
+for is_car_taxi in [False, True]:
+    for is_airport_initiation in [False, True]:
+        plot(is_car_taxi=is_car_taxi, is_airport_initiation=is_airport_initiation)

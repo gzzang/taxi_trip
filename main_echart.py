@@ -49,7 +49,7 @@ with open('out/result_echart.pkl', 'rb') as f:
     result_echart = pk.load(f)
 
 for flag_car_type in ['taxi', 'online']:
-    for flag_point_type in ['init', 'term']:
+    for flag_point_type in ['arrival', 'departure']:
         plot_geo(count_ar=result_echart[(flag_car_type, flag_point_type)]['count_ar'],
                  cluster_centers=result_echart[(flag_car_type, flag_point_type)]['cluster_centers'],
                  flag_car_type=flag_car_type,

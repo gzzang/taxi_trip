@@ -36,6 +36,7 @@ week_number = result_figure['week_number']
 week_list = result_figure['week_list']
 point_dict_week_day_average_flow = result_figure['point_dict_week_day_average_flow']
 
+point_list_string = {'arrival': u'到达机场', 'departure': u'离开机场'}
 # 第一系列图
 for i, flow_dict in enumerate(day_list_point_dict_hour_flow):
     plt.figure()
@@ -102,7 +103,7 @@ plt.close()
 average_week_day_flow_df.to_csv(output_path + 'table_average_week_flow_by_days.csv', index=None)
 
 # 第五系列图
-for string in ['init', 'term']:
+for string in ['arrival', 'departure']:
     plt.figure()
     for j in range(week_number):
         plt.plot(range(week_day_number), point_dict_day_flow[string][week_list[j]], label=f'第{j + 1}周')

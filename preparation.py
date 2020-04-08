@@ -69,7 +69,7 @@ def cal_result_echart(df_list_dict):
     result_echart = {}
     for flag_car_type in ['taxi', 'online']:
         df = pd.concat(df_list_dict[flag_car_type], axis=0, ignore_index=True)
-        for flag_point_type in ['init', 'term']:
+        for flag_point_type in ['arrival', 'departure']:
             print('--------')
             print(f'flag_car_type{flag_car_type}')
             print(f'flag_point_type{flag_point_type}')
@@ -91,11 +91,14 @@ def cal_car_type_result_echart_by_point_type(df, flag_point_type, is_output_targ
 def cal_coordinate_df(df, flag_point_type, is_output_target):
     selected_df = pick_selected_df(df, flag_point_type=flag_point_type)
     if is_output_target:
-        column = flag_point_type
-    else:
-        if flag_point_type == 'init':
+        if flag_point_type == 'arrival':
+            column = 'init'
+        elif flag_point_type == 'departure':
             column = 'term'
-        elif flag_point_type == 'term':
+    else:
+        if flag_point_type == 'arrival':
+            column = 'term'
+        elif flag_point_type == 'departure':
             column = 'init'
     coordinate_df = selected_df[[column + "_lon", column + "_lat"]]
     coordinate_df.columns = ['lon', 'lat']
@@ -110,7 +113,7 @@ def cal_result_figure(car_dict_day_list_df):
     car_dict_point_dict_day_hour_flow = {}
     for car_type, day_list_df in car_dict_day_list_df.items():
         point_dict_day_hour_flow = {}
-        for point_type in ['init', 'term']:
+        for point_type in ['arrival', 'departure']:
             day_list_hour_flow = []
             for df in day_list_df:
                 selected_df = pick_selected_df(df, point_type)
@@ -128,8 +131,8 @@ def cal_result_figure(car_dict_day_list_df):
     week_first_day = 12
 
     car_type_list = ['taxi', 'online']
-    point_type_list = ['init', 'term']
-    point_list_string = {'init': u'到达机场', 'term': u'离开机场'}
+    point_type_list = ['arrival', 'departure']
+    point_list_string = {'arrival': u'到达机场', 'departure': u'离开机场'}
 
     car_dict_point_dict_day_flow = {
         car_type: {point_type: day_hour_flow.sum(axis=1) for point_type, day_hour_flow in
@@ -144,17 +147,17 @@ def cal_result_figure(car_dict_day_list_df):
 
     car_plus_dict_point_dict_day_hour_flow = car_dict_point_dict_day_hour_flow.copy()
 
-    car_plus_dict_point_dict_day_hour_flow['total'] = {'init': car_plus_dict_point_dict_day_hour_flow['taxi']['init'] + \
-                                                               car_plus_dict_point_dict_day_hour_flow['online']['init'],
-                                                       'term': car_plus_dict_point_dict_day_hour_flow['taxi']['term'] + \
-                                                               car_plus_dict_point_dict_day_hour_flow['online']['term']}
+    car_plus_dict_point_dict_day_hour_flow['total'] = {'arrival': car_plus_dict_point_dict_day_hour_flow['taxi']['arrival'] + \
+                                                               car_plus_dict_point_dict_day_hour_flow['online']['arrival'],
+                                                       'departure': car_plus_dict_point_dict_day_hour_flow['taxi']['departure'] + \
+                                                               car_plus_dict_point_dict_day_hour_flow['online']['departure']}
 
     day_list_dict_hour_flow = [{car_type + '_' + point_type: day_flow[i, :]
                                 for point_type, car_dict_day_hour_flow in car_plus_dict_point_dict_day_hour_flow.items()
                                 for car_type, day_flow in car_dict_day_hour_flow.items()}
                                for i in range(month_day_number)]
 
-    table_column_list = ['taxi_init', 'taxi_term', 'online_init', 'online_term', 'total_init', 'total_term']
+    table_column_list = ['taxi_arrival', 'taxi_departure', 'online_arrival', 'online_departure', 'total_arrival', 'total_departure']
 
     point_dict_day_flow = {point_type: np.array(
         [point_dict_day_flow[point_type] for point_dict_day_flow in car_dict_point_dict_day_flow.values()]).sum(axis=0)
@@ -215,9 +218,9 @@ def pick_selected_df(df, flag_point_type):
     airport_min_lat = 40.047361
     airport_max_lat = 40.108833
 
-    if flag_point_type == 'init':
+    if flag_point_type == 'arrival':
         column = 'term'
-    elif flag_point_type == 'term':
+    elif flag_point_type == 'departure':
         column = 'init'
     return df[(df[column + '_lon'] >= airport_min_lon) & (df[column + '_lon'] <= airport_max_lon) &
               (df[column + '_lat'] >= airport_min_lat) & (df[column + '_lat'] <= airport_max_lat)]
@@ -237,9 +240,9 @@ if __name__ == '__main__':
 
     temp2 = time.time()
 
-    # result_echart = cal_result_echart(df_list_dict)
-    # with open('out/result_echart.pkl', 'wb') as f:
-    #     pk.dump(result_echart, f)
+    result_echart = cal_result_echart(df_list_dict)
+    with open('out/result_echart.pkl', 'wb') as f:
+        pk.dump(result_echart, f)
 
     temp3 = time.time()
 

@@ -125,10 +125,87 @@ def cal_result_figure(car_dict_day_list_df):
             point_dict_day_hour_flow[point_type] = np.array(day_list_hour_flow)
         car_dict_point_dict_day_hour_flow[car_type] = point_dict_day_hour_flow
 
+    week_first_day = 12
+
+    car_type_list = ['taxi', 'online']
+    point_type_list = ['init', 'term']
+    point_list_string = {'init': u'到达机场', 'term': u'离开机场'}
+
+    car_dict_point_dict_day_flow = {
+        car_type: {point_type: day_hour_flow.sum(axis=1) for point_type, day_hour_flow in
+                   point_dict_day_hour_flow.items()}
+        for car_type, point_dict_day_hour_flow in car_dict_point_dict_day_hour_flow.items()}
+
+    day_list_point_dict_hour_flow = [
+        {point_type: np.array([car_dict_point_dict_day_hour_flow[car_type][point_type][i, :]
+                               for car_type in car_type_list]).sum(axis=0)
+         for point_type in point_type_list}
+        for i in range(month_day_number)]
+
+    car_plus_dict_point_dict_day_hour_flow = car_dict_point_dict_day_hour_flow.copy()
+
+    car_plus_dict_point_dict_day_hour_flow['total'] = {'init': car_plus_dict_point_dict_day_hour_flow['taxi']['init'] + \
+                                                               car_plus_dict_point_dict_day_hour_flow['online']['init'],
+                                                       'term': car_plus_dict_point_dict_day_hour_flow['taxi']['term'] + \
+                                                               car_plus_dict_point_dict_day_hour_flow['online']['term']}
+
+    day_list_dict_hour_flow = [{car_type + '_' + point_type: day_flow[i, :]
+                                for point_type, car_dict_day_hour_flow in car_plus_dict_point_dict_day_hour_flow.items()
+                                for car_type, day_flow in car_dict_day_hour_flow.items()}
+                               for i in range(month_day_number)]
+
+    table_column_list = ['taxi_init', 'taxi_term', 'online_init', 'online_term', 'total_init', 'total_term']
+
+    point_dict_day_flow = {point_type: np.array(
+        [point_dict_day_flow[point_type] for point_dict_day_flow in car_dict_point_dict_day_flow.values()]).sum(axis=0)
+                           for
+                           point_type in point_type_list}
+
+    df_day_flow = pd.DataFrame({point_type + '_' + car_type: day_flow for car_type, point_dict_day_flow in
+                                car_dict_point_dict_day_flow.items() for point_type, day_flow in
+                                point_dict_day_flow.items()})
+
+    week = range(week_first_day - 1, week_first_day + week_day_number - 1)
+
+    week_string = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+    df_week_day_flow = df_day_flow[(week_first_day - 1):(week_first_day + week_day_number - 1)]
+
+    point_type_day_flow = pd.DataFrame(point_dict_day_flow)
+    point_type_day_flow['week'] = (np.arange(month_day_number) + 3) % week_day_number
+    average_week_day_flow_df = point_type_day_flow.groupby(by='week').mean()
+    column_string_list = average_week_day_flow_df.columns.to_list()
+    average_week_day_flow = average_week_day_flow_df.to_numpy().T
+
+    point_dict_week_day_average_flow = {}
+    for key, value in zip(column_string_list, average_week_day_flow):
+        point_dict_week_day_average_flow[key] = value
+
+    first_week_first_day = 5
+    week_number = 3
+
+    week_list = [range(first_week_first_day - 1 + week_day_number * i,
+                       first_week_first_day + week_day_number - 1 + week_day_number * i) for i in range(3)]
+
+
+
+
     return {'month_day_number': month_day_number,
             'day_hour_number': day_hour_number,
             'car_dict_point_dict_day_hour_flow': car_dict_point_dict_day_hour_flow,
-            'week_day_number': week_day_number
+            'week_day_number': week_day_number,
+            'day_list_point_dict_hour_flow':day_list_point_dict_hour_flow,
+            'point_list_string':point_list_string,
+            'day_list_dict_hour_flow':day_list_dict_hour_flow,
+            'point_dict_day_flow':point_dict_day_flow,
+            'df_day_flow':df_day_flow,
+            'week':week,
+            'df_week_day_flow':df_week_day_flow,
+            'week_string':week_string,
+            'average_week_day_flow_df':average_week_day_flow_df,
+            'week_number':week_number,
+            'week_list':week_list,
+            'point_dict_week_day_average_flow':point_dict_week_day_average_flow,
             }
 
 

@@ -105,6 +105,23 @@ def cal_coordinate_df(df, flag_point_type, is_output_target):
     return coordinate_df
 
 
+def cal_coordinate_and_hour_df(df, flag_point_type, is_output_target):
+    selected_df = pick_selected_df(df, flag_point_type=flag_point_type)
+    if is_output_target:
+        if flag_point_type == 'arrival':
+            column = 'init'
+        elif flag_point_type == 'departure':
+            column = 'term'
+    else:
+        if flag_point_type == 'arrival':
+            column = 'term'
+        elif flag_point_type == 'departure':
+            column = 'init'
+    coordinate_df = selected_df[[column + "_lon", column + "_lat", 'hour']]
+    coordinate_df.columns = ['lon', 'lat', 'hour']
+    return coordinate_df
+
+
 def cal_result_figure(car_dict_day_list_df):
     month_day_number = 31
     week_day_number = 7
@@ -147,17 +164,19 @@ def cal_result_figure(car_dict_day_list_df):
 
     car_plus_dict_point_dict_day_hour_flow = car_dict_point_dict_day_hour_flow.copy()
 
-    car_plus_dict_point_dict_day_hour_flow['total'] = {'arrival': car_plus_dict_point_dict_day_hour_flow['taxi']['arrival'] + \
-                                                               car_plus_dict_point_dict_day_hour_flow['online']['arrival'],
-                                                       'departure': car_plus_dict_point_dict_day_hour_flow['taxi']['departure'] + \
-                                                               car_plus_dict_point_dict_day_hour_flow['online']['departure']}
+    car_plus_dict_point_dict_day_hour_flow['total'] = {
+        'arrival': car_plus_dict_point_dict_day_hour_flow['taxi']['arrival'] + \
+                   car_plus_dict_point_dict_day_hour_flow['online']['arrival'],
+        'departure': car_plus_dict_point_dict_day_hour_flow['taxi']['departure'] + \
+                     car_plus_dict_point_dict_day_hour_flow['online']['departure']}
 
     day_list_dict_hour_flow = [{car_type + '_' + point_type: day_flow[i, :]
                                 for point_type, car_dict_day_hour_flow in car_plus_dict_point_dict_day_hour_flow.items()
                                 for car_type, day_flow in car_dict_day_hour_flow.items()}
                                for i in range(month_day_number)]
 
-    table_column_list = ['taxi_arrival', 'taxi_departure', 'online_arrival', 'online_departure', 'total_arrival', 'total_departure']
+    table_column_list = ['taxi_arrival', 'taxi_departure', 'online_arrival', 'online_departure', 'total_arrival',
+                         'total_departure']
 
     point_dict_day_flow = {point_type: np.array(
         [point_dict_day_flow[point_type] for point_dict_day_flow in car_dict_point_dict_day_flow.values()]).sum(axis=0)
@@ -190,25 +209,22 @@ def cal_result_figure(car_dict_day_list_df):
     week_list = [range(first_week_first_day - 1 + week_day_number * i,
                        first_week_first_day + week_day_number - 1 + week_day_number * i) for i in range(3)]
 
-
-
-
     return {'month_day_number': month_day_number,
             'day_hour_number': day_hour_number,
             'car_dict_point_dict_day_hour_flow': car_dict_point_dict_day_hour_flow,
             'week_day_number': week_day_number,
-            'day_list_point_dict_hour_flow':day_list_point_dict_hour_flow,
-            'point_list_string':point_list_string,
-            'day_list_dict_hour_flow':day_list_dict_hour_flow,
-            'point_dict_day_flow':point_dict_day_flow,
-            'df_day_flow':df_day_flow,
-            'week':week,
-            'df_week_day_flow':df_week_day_flow,
-            'week_string':week_string,
-            'average_week_day_flow_df':average_week_day_flow_df,
-            'week_number':week_number,
-            'week_list':week_list,
-            'point_dict_week_day_average_flow':point_dict_week_day_average_flow,
+            'day_list_point_dict_hour_flow': day_list_point_dict_hour_flow,
+            'point_list_string': point_list_string,
+            'day_list_dict_hour_flow': day_list_dict_hour_flow,
+            'point_dict_day_flow': point_dict_day_flow,
+            'df_day_flow': df_day_flow,
+            'week': week,
+            'df_week_day_flow': df_week_day_flow,
+            'week_string': week_string,
+            'average_week_day_flow_df': average_week_day_flow_df,
+            'week_number': week_number,
+            'week_list': week_list,
+            'point_dict_week_day_average_flow': point_dict_week_day_average_flow,
             }
 
 
@@ -229,6 +245,62 @@ def pick_selected_df(df, flag_point_type):
 if __name__ == '__main__':
     # 1 需要绘制流量图
     # 2 需要绘制区域统计和聚类中心
+
+    cluster_number = 16
+
+    flag_point_type = 'arrival'
+    taxi_df_list = read_df_list('taxi')
+    taxi_df = pd.concat(taxi_df_list, axis=0, ignore_index=True)
+
+    taxi_arrival_coordinate_df = cal_coordinate_df(taxi_df, flag_point_type=flag_point_type, is_output_target=True)
+    taxi_arrival_count_df = taxi_arrival_coordinate_df.groupby(["lon", "lat"]).size().reset_index(name="time")
+    taxi_arrival_count_ar = taxi_arrival_count_df.to_numpy()
+    taxi_arrival_kmeans = KMeans(n_clusters=cluster_number, random_state=0).fit(taxi_arrival_coordinate_df)
+    taxi_arrival_cluster_centers = taxi_arrival_kmeans.cluster_centers_
+
+    taxi_arrival_12nd_day_coordinate_df = cal_coordinate_and_hour_df(taxi_df_list[11], flag_point_type=flag_point_type,
+                                                                     is_output_target=True)
+    # taxi_arrival_12nd_day_coordinate_label = taxi_arrival_kmeans.predict(taxi_arrival_12nd_day_coordinate_df[['lon', 'lat']])
+    # taxi_arrival_12nd_day_center_count=np.bincount(taxi_arrival_12nd_day_coordinate_label)
+    hour_li_taxi_arrival_12nd_day_center_count = [(np.bincount(taxi_arrival_kmeans.predict(
+        taxi_arrival_12nd_day_coordinate_df[taxi_arrival_12nd_day_coordinate_df['hour'] == i][['lon', 'lat']]),
+                                                               minlength=cluster_number)) for i in range(24)]
+    hour_ar_center_flow = np.vstack(hour_li_taxi_arrival_12nd_day_center_count)
+
+    airport_min_lon = 116.573599
+    airport_max_lon = 116.626814
+    airport_min_lat = 40.047361
+    airport_max_lat = 40.108833
+
+    airport_coord = np.array(
+        [(airport_min_lon + airport_max_lon) / 2, (airport_min_lat + airport_max_lat) / 2]).reshape((1, 2))
+
+    from lib.cal_bus_line import cal_bus_line
+
+    line_number = 4
+    stop_coord_array = taxi_arrival_cluster_centers
+
+    bus_line = cal_bus_line(line_number=4, airport_coord=airport_coord, stop_coord_array=stop_coord_array,
+                            is_show_detail=False)
+
+    stop_number = stop_coord_array.shape[0]
+    distance_array = np.linalg.norm(stop_coord_array - airport_coord, ord=2, axis=1)
+    stop_sort_array = distance_array.argsort()
+    line_list_stop_index = [stop_sort_array[bus_line == i] for i in range(line_number)]
+    optimal_line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_coord_array[v, :])) for v in
+                                    line_list_stop_index]
+
+    print(optimal_line_list_stop_coord)
+
+    result_line = {'cluster_centers': taxi_arrival_cluster_centers,
+                   'hour_ar_center_flow': hour_ar_center_flow,
+                   'airport_coord': airport_coord,
+                   'line_number': line_number,
+                   'optimal_line_list_stop_coord': optimal_line_list_stop_coord
+                   }
+    with open('out/result_line.pkl', 'wb') as f:
+        pk.dump(result_line, f)
+
 
     temp = time.time()
 

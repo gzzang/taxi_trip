@@ -246,7 +246,7 @@ if __name__ == '__main__':
     # 1 需要绘制流量图
     # 2 需要绘制区域统计和聚类中心
 
-    cluster_number = 16
+    cluster_number = 10
 
     flag_point_type = 'arrival'
     taxi_df_list = read_df_list('taxi')
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     # taxi_arrival_12nd_day_center_count=np.bincount(taxi_arrival_12nd_day_coordinate_label)
     hour_li_taxi_arrival_12nd_day_center_count = [(np.bincount(taxi_arrival_kmeans.predict(
         taxi_arrival_12nd_day_coordinate_df[taxi_arrival_12nd_day_coordinate_df['hour'] == i][['lon', 'lat']]),
-                                                               minlength=cluster_number)) for i in range(24)]
+        minlength=cluster_number)) for i in range(24)]
     hour_ar_center_flow = np.vstack(hour_li_taxi_arrival_12nd_day_center_count)
 
     airport_min_lon = 116.573599
@@ -275,32 +275,57 @@ if __name__ == '__main__':
     airport_coord = np.array(
         [(airport_min_lon + airport_max_lon) / 2, (airport_min_lat + airport_max_lat) / 2]).reshape((1, 2))
 
+    all_point_ar_coord = np.vstack((airport_coord, taxi_arrival_cluster_centers))
+    import geopy.distance
+
+    distance_2dar = [[geopy.distance.distance(coord_foo[::-1], coord_bar[::-1]).m for coord_foo in all_point_ar_coord]
+                     for coord_bar in all_point_ar_coord]
+
     from lib.cal_bus_line import cal_bus_line
 
     line_number = 4
-    stop_coord_array = taxi_arrival_cluster_centers
+    stop_ar_coord = taxi_arrival_cluster_centers
 
-    bus_line = cal_bus_line(line_number=4, airport_coord=airport_coord, stop_coord_array=stop_coord_array,
-                            is_show_detail=False)
+    stop_ar_gps_coord = taxi_arrival_cluster_centers
+    hour_ar_bus_line = [cal_bus_line(line_number=4, airport_coord=airport_coord, stop_ar_coord=stop_ar_coord,
+                                     stop_ar_flow=center_flow, is_show_detail=False, is_show_iteration=False) for
+                        center_flow in hour_ar_center_flow]
 
-    stop_number = stop_coord_array.shape[0]
-    distance_array = np.linalg.norm(stop_coord_array - airport_coord, ord=2, axis=1)
+    stop_number = stop_ar_coord.shape[0]
+    distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
     stop_sort_array = distance_array.argsort()
-    line_list_stop_index = [stop_sort_array[bus_line == i] for i in range(line_number)]
-    optimal_line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_coord_array[v, :])) for v in
-                                    line_list_stop_index]
+    hour_ar_line_list_stop_index = [[stop_sort_array[bus_line == i] for i in range(line_number)] for bus_line in
+                                    hour_ar_bus_line]
+    hour_ar_optimal_line_list_stop_coord = [[np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in
+                                             line_list_stop_index] for line_list_stop_index in
+                                            hour_ar_line_list_stop_index]
 
-    print(optimal_line_list_stop_coord)
+    # line_number = 4
+    # stop_ar_coord = taxi_arrival_cluster_centers
+    # stop_ar_flow = hour_ar_center_flow[7]
+    # bus_line = cal_bus_line(line_number=4, airport_coord=airport_coord, stop_ar_coord=stop_ar_coord,
+    #                         stop_ar_flow=stop_ar_flow, is_show_detail=False)
+    # stop_number = stop_ar_coord.shape[0]
+    # distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
+    # stop_sort_array = distance_array.argsort()
+    # line_list_stop_index = [stop_sort_array[bus_line == i] for i in range(line_number)]
+    # optimal_line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in
+    #                                 line_list_stop_index]
+
+    # print(optimal_line_list_stop_coord)
 
     result_line = {'cluster_centers': taxi_arrival_cluster_centers,
                    'hour_ar_center_flow': hour_ar_center_flow,
                    'airport_coord': airport_coord,
                    'line_number': line_number,
-                   'optimal_line_list_stop_coord': optimal_line_list_stop_coord
+                   'hour_ar_optimal_line_list_stop_coord': hour_ar_optimal_line_list_stop_coord,
+                   'hour_ar_center_flow': hour_ar_center_flow,
+                   'distance_2dar': distance_2dar
                    }
     with open('out/result_line.pkl', 'wb') as f:
         pk.dump(result_line, f)
 
+    pdb.set_trace()
 
     temp = time.time()
 

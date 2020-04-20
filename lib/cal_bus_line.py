@@ -11,37 +11,38 @@ import time
 import pdb
 
 
-def cal_bus_line(line_number, airport_coord, stop_ar_coord, stop_ar_flow, is_show_detail=True, is_show_iteration=True):
-    def cal_line():
+def cal_line(line_number, airport_coord_ar, stop_ar_coord_ar, stop_ar_flow, is_show_detail=True, is_show_iteration=True):
+    def ga_line():
+        #############################################################
         def crossover(in_one, in_two):
-            one = in_one.copy()
-            two = in_two.copy()
+            out_one = in_one.copy()
+            out_two = in_two.copy()
             if np.random.rand() < crossover_probability:
                 temp = np.random.rand(gene_number) < crossover_proportion
-                one[temp] = in_two[temp]
-                two[temp] = in_one[temp]
-            return one, two
+                out_one[temp] = in_two[temp]
+                out_two[temp] = in_one[temp]
+            return out_one, out_two
 
         def mutation(in_one):
-            one = in_one.copy()
+            out_one = in_one.copy()
             if np.random.rand() < mutation_probability:
                 temp = np.random.rand(gene_number) < mutation_proportion
-                one[temp] = np.random.randint(low=0, high=line_number, size=[temp.sum()])
-            return one
+                out_one[temp] = np.random.randint(low=0, high=line_number, size=[temp.sum()])
+            return out_one
 
         def evaluate(in_one):
             return cal_distance(in_one)
-
-        start_time = time.time()
 
         gene_number = stop_number
         generation_number = 64
         chromosome_number = 64
         crossover_probability = 0.4
         mutation_probability = 0.2
+
         crossover_proportion = 0.2
         mutation_proportion = 0.2
-
+        ###############################################################################################
+        start_time = time.time()
         pop = np.random.randint(low=0, high=line_number, size=[chromosome_number, gene_number])
         optimum_log = np.zeros(generation_number)
 
@@ -76,7 +77,6 @@ def cal_bus_line(line_number, airport_coord, stop_ar_coord, stop_ar_flow, is_sho
                 target.sort()
                 final_index = np.zeros(chromosome_number - 1)
 
-                target_i = 0
                 fitness_i = 0
                 for target_i in range(chromosome_number - 1):
                     while target[target_i] > fitness[fitness_i]:
@@ -88,20 +88,45 @@ def cal_bus_line(line_number, airport_coord, stop_ar_coord, stop_ar_flow, is_sho
                 optimal_chromosome = new_pop[optimal_chromosome_index]
 
         end_time = time.time()
-
-        print(f'time:{end_time - start_time}')
-
         if is_show_detail:
+            print(f'time:{end_time - start_time}')
+
             plt.figure()
             plt.plot(optimum_log)
             plt.xlabel('Iteration')
+            plt.savefig('figure.png')
 
         return optimal_chromosome
 
-    def cal_distance(xx):
-        line_list_stop_index = [stop_sort_array[xx == i] for i in range(line_number)]
-        line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in line_list_stop_index]
+    def cal_distance(stop_ar_line_class):
+        line_list_stop_index = [np.where(stop_ar_line_class == i)[0] for i in range(line_number)]
+        #
+        # print(line_list_stop_index)
+        #
+        # for stop_index in line_list_stop_index:
+        #     print(stop_index)
+        #     t1=stop_sort_array[stop_index]
+        #     print(t1)
+        #     t2=list(stop_sort_array[stop_index].argsort())
+        #     print(t2)
+        #     t3=stop_index[list(stop_sort_array[stop_index].argsort())]
+        #     print(t3)
+
+
+
+        line_list_stop_index = [stop_index[distance_ar[stop_index].argsort()] for stop_index in line_list_stop_index]
+
+        # print(stop_sort_array)
+        # print(stop_ar_line_class)
+        # print(line_list_stop_index)
+        # pdb.set_trace()
+        line_list_stop_coord = [np.vstack((airport_coord_ar, stop_ar_coord_ar[v])) for v in line_list_stop_index]
         line_list_stop_flow = [stop_ar_flow[v] for v in line_list_stop_index]
+
+
+
+        # stop_ar_coord_ar[stop_ar_line_class == 0]
+        # stop_ar_coord_ar[line_list_stop_index[0]]
 
         line_li_stop_sum_flow = [stop_flow.sum() for stop_flow in line_list_stop_flow]
         line_li_stop_distance_ar = [np.linalg.norm(v[1:] - v[:-1], axis=1) for v in line_list_stop_coord]
@@ -148,13 +173,20 @@ def cal_bus_line(line_number, airport_coord, stop_ar_coord, stop_ar_flow, is_sho
 
         return cost
 
-    stop_number = stop_ar_coord.shape[0]
-    distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
-    stop_sort_array = distance_array.argsort()
+    stop_number = stop_ar_coord_ar.shape[0]
+    distance_ar = np.linalg.norm(stop_ar_coord_ar - airport_coord_ar, ord=2, axis=1)
+    # stop_sort_array = distance_ar.argsort().argsort()
 
-    optimal_chromosome = cal_line()
-    # if is_show_detail:
+    # stop_sort_array.argsort()
 
+    # print(stop_sort_array)
+    # pdb.set_trace()
+
+    optimal_chromosome = ga_line()
+
+    parameter={'stop_number':stop_number}
+
+    print('.')
     return optimal_chromosome
 
 
@@ -162,34 +194,39 @@ if __name__ == '__main__':
     np.random.seed(2)
     max_flow = 100
     stop_number = 16
-    airport_coord = np.random.rand(1, 2)
-    stop_ar_coord = np.random.rand(stop_number, 2)
+    airport_coord_ar = np.random.rand(1, 2)
+    stop_ar_coord_ar = np.random.rand(stop_number, 2)
     stop_ar_flow = np.random.randint(low=0, high=max_flow, size=stop_number)
 
     np.random.seed(int(time.time()))
-    # with open('out/data.pkl', 'rb') as f:
-    #     data = pickle.load(f)
-    #
-    #
-    # airport_coord = data['airport_coord']
-    # stop_ar_coord = data['stop_ar_coord']
-    # stop_ar_flow = data['stop_ar_flow']
-
     line_number = 8
-    bus_line = cal_bus_line(line_number, airport_coord, stop_ar_coord, stop_ar_flow)
+    bus_line = cal_line(line_number, airport_coord_ar, stop_ar_coord_ar, stop_ar_flow)
 
-    stop_number = stop_ar_coord.shape[0]
-    distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
-    stop_sort_array = distance_array.argsort()
-    line_list_stop_index = [stop_sort_array[bus_line == i] for i in range(line_number)]
-    optimal_line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in
+    stop_number = stop_ar_coord_ar.shape[0]
+    distance_array = np.linalg.norm(stop_ar_coord_ar - airport_coord_ar, ord=2, axis=1)
+    line_list_stop_index = [np.where(bus_line == i)[0] for i in range(line_number)]
+    line_list_stop_index = [stop_index[distance_array[stop_index].argsort()] for stop_index in line_list_stop_index]
+    optimal_line_list_stop_coord = [np.vstack((airport_coord_ar[0, :], stop_ar_coord_ar[v, :])) for v in
                                     line_list_stop_index]
 
+
+    # print(distance_array)
+    # print(stop_sort_array)
+    # print(bus_line)
+    # print(line_list_stop_index)
+    # print(optimal_line_list_stop_coord)
+    # pdb.set_trace()
+
+    print(bus_line)
+
     plt.figure()
-    plt.scatter(airport_coord[0, 0], airport_coord[0, 1], c='r', s=20, alpha=0.5)
+    plt.scatter(airport_coord_ar[0, 0], airport_coord_ar[0, 1], c='r', s=20, alpha=0.5)
     for i in range(line_number):
         plt.plot(optimal_line_list_stop_coord[i][:, 0], optimal_line_list_stop_coord[i][:, 1])
-    # plt.xlim([0, 1])
-    # plt.ylim([0, 1])
+
+    for i,coord in enumerate(stop_ar_coord_ar):
+        plt.annotate(f'{i+1}',xy=coord, xytext=(0, 8), textcoords='offset points', ha='center', va='bottom')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
 
     plt.show()

@@ -260,8 +260,6 @@ if __name__ == '__main__':
 
     taxi_arrival_12nd_day_coordinate_df = cal_coordinate_and_hour_df(taxi_df_list[11], flag_point_type=flag_point_type,
                                                                      is_output_target=True)
-    # taxi_arrival_12nd_day_coordinate_label = taxi_arrival_kmeans.predict(taxi_arrival_12nd_day_coordinate_df[['lon', 'lat']])
-    # taxi_arrival_12nd_day_center_count=np.bincount(taxi_arrival_12nd_day_coordinate_label)
     hour_li_taxi_arrival_12nd_day_center_count = [(np.bincount(taxi_arrival_kmeans.predict(
         taxi_arrival_12nd_day_coordinate_df[taxi_arrival_12nd_day_coordinate_df['hour'] == i][['lon', 'lat']]),
         minlength=cluster_number)) for i in range(24)]
@@ -281,38 +279,32 @@ if __name__ == '__main__':
     distance_2dar = [[geopy.distance.distance(coord_foo[::-1], coord_bar[::-1]).m for coord_foo in all_point_ar_coord]
                      for coord_bar in all_point_ar_coord]
 
-    from lib.cal_bus_line import cal_bus_line
+    from lib.cal_bus_line import cal_line
 
     line_number = 4
     stop_ar_coord = taxi_arrival_cluster_centers
 
     stop_ar_gps_coord = taxi_arrival_cluster_centers
-    hour_ar_bus_line = [cal_bus_line(line_number=4, airport_coord=airport_coord, stop_ar_coord=stop_ar_coord,
+    hour_ar_bus_line = [cal_line(line_number=4, airport_coord_ar=airport_coord, stop_ar_coord_ar=stop_ar_coord,
                                      stop_ar_flow=center_flow, is_show_detail=False, is_show_iteration=False) for
                         center_flow in hour_ar_center_flow]
 
+    # center_ar_certain_day_flow = hour_ar_center_flow.sum(axis=0)
+    # certain_day_bus_line = cal_line(line_number=4, airport_coord_ar=airport_coord, stop_ar_coord_ar=stop_ar_coord,
+    #                                 stop_ar_flow=center_ar_certain_day_flow, is_show_detail=True, is_show_iteration=False)
+
+
+
     stop_number = stop_ar_coord.shape[0]
     distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
-    stop_sort_array = distance_array.argsort()
-    hour_ar_line_list_stop_index = [[stop_sort_array[bus_line == i] for i in range(line_number)] for bus_line in
-                                    hour_ar_bus_line]
+    # stop_sort_array = distance_array.argsort()
+    # hour_ar_line_list_stop_index = [[stop_sort_array[bus_line == i] for i in range(line_number)] for bus_line in
+    #                                 hour_ar_bus_line]
+    hour_ar_line_list_stop_index = [[np.where(bus_line == i)[0] for i in range(line_number)]for bus_line in hour_ar_bus_line]
+    hour_ar_line_list_stop_index = [[stop_index[distance_array[stop_index].argsort()] for stop_index in line_list_stop_index] for line_list_stop_index in hour_ar_line_list_stop_index]
     hour_ar_optimal_line_list_stop_coord = [[np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in
                                              line_list_stop_index] for line_list_stop_index in
                                             hour_ar_line_list_stop_index]
-
-    # line_number = 4
-    # stop_ar_coord = taxi_arrival_cluster_centers
-    # stop_ar_flow = hour_ar_center_flow[7]
-    # bus_line = cal_bus_line(line_number=4, airport_coord=airport_coord, stop_ar_coord=stop_ar_coord,
-    #                         stop_ar_flow=stop_ar_flow, is_show_detail=False)
-    # stop_number = stop_ar_coord.shape[0]
-    # distance_array = np.linalg.norm(stop_ar_coord - airport_coord, ord=2, axis=1)
-    # stop_sort_array = distance_array.argsort()
-    # line_list_stop_index = [stop_sort_array[bus_line == i] for i in range(line_number)]
-    # optimal_line_list_stop_coord = [np.vstack((airport_coord[0, :], stop_ar_coord[v, :])) for v in
-    #                                 line_list_stop_index]
-
-    # print(optimal_line_list_stop_coord)
 
     result_line = {'cluster_centers': taxi_arrival_cluster_centers,
                    'hour_ar_center_flow': hour_ar_center_flow,
